@@ -1,0 +1,112 @@
+/* 1. Update Reconciliation Status */
+Patch(
+    Reconciliation,
+    Active_Gallery.Selected,
+    {
+        Status: {
+            Value: "Approved"
+        }
+    }
+);
+
+/* 2. Create Audit Log Entry */
+Patch(
+    ReconciliationAuditLog,
+    Defaults(ReconciliationAuditLog),
+    {
+        Title:
+            Coalesce(
+                Active_Gallery.Selected.Title,
+                "Reconciliation Item"
+            ) & " - Approved",
+
+        ParentID:
+            Text(Active_Gallery.Selected.ID),
+
+        ActivityType:
+            {Value:"Approved"},
+
+        ChangeDescription:
+            "Status changed from " &
+            Active_Gallery.Selected.Status.Value &
+            " to Approved",
+
+        OldValue:
+            Active_Gallery.Selected.Status.Value,
+
+        NewValue:
+            "Approved",
+
+        CreatedOn:
+            Now(),
+
+        CreatedByName:
+            User().FullName,
+
+        CreatedByEmail:
+            User().Email,
+
+        FiscalYear:
+            Coalesce(
+                Active_Gallery.Selected.'Fiscal Year'.Value,
+                ""
+            ),
+
+        FiscalPeriod:
+            Coalesce(
+                Active_Gallery.Selected.'Fiscal Period'.Value,
+                ""
+            )
+    }
+);
+
+/* 3. Run Approval Workflow */
+PA_Approve_Reconciliation_Item.Run( 
+    "Approved",
+
+    "",
+
+    Coalesce(
+        Office365Users.MyProfileV2().Mail,
+        User().Email
+    ),
+
+    Coalesce(
+        Active_Gallery.Selected.Title,
+        "Reconciliation Item"
+    ),
+
+    /* TEMPORARY TEST EMAIL RECIPIENT */
+    "jluna@jhancock.com",
+
+    Coalesce(
+        User().FullName,
+        "Approver"
+    ),
+
+    "https://apps.powerapps.com/play/dd73bcc3-f6b9-4c4e-bf94-af4a19994e0e?source=portal&ItemID=" &
+    Text(Active_Gallery.Selected.ID),
+
+    Coalesce(
+        Active_Gallery.Selected.'Fiscal Year'.Value,
+        ""
+    ),
+
+    Coalesce(
+        Active_Gallery.Selected.'Fiscal Period'.Value,
+        ""
+    ),
+
+    Text(
+        Coalesce(
+            Active_Gallery.Selected.ID,
+            0
+        )
+    )
+);
+
+/* 4. Success Message */
+Notify(
+    "Reconciliation approved successfully.",
+    NotificationType.Success
+);
