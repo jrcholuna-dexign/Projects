@@ -1,0 +1,112 @@
+/* Validate Rejection Reason */
+If(
+    IsBlank(Trim(txtRejectReason.Text)),
+
+    Notify(
+        "Please provide a rejection reason.",
+        NotificationType.Error
+    ),
+
+    /* 1. Update Reconciliation Status */
+    Patch(
+        Reconciliation,
+        Active_Gallery.Selected,
+        {
+            Status: { Value: "Rejected" }
+        }
+    );
+
+    /* 2. Create Audit Log Entry */
+    Patch(
+        ReconciliationAuditLog,
+        Defaults(ReconciliationAuditLog),
+        {
+            Title:
+                Active_Gallery.Selected.Title &
+                " - Rejected",
+
+            ParentID:
+                Text(Active_Gallery.Selected.ID),
+
+            ActivityType:
+                { Value: "Rejected" },
+
+            ChangeDescription:
+                "Status changed from " &
+                Active_Gallery.Selected.Status.Value &
+                " to Rejected",
+
+            OldValue:
+                Active_Gallery.Selected.Status.Value,
+
+            NewValue:
+                "Rejected",
+
+            Comments:
+                txtRejectReason.Text,
+
+            CreatedOn:
+                Now(),
+
+            CreatedByName:
+                User().FullName,
+
+            CreatedByEmail:
+                User().Email,
+
+            FiscalYear:
+                Active_Gallery.Selected.'Fiscal Year'.Value,
+
+            FiscalPeriod:
+                Active_Gallery.Selected.'Fiscal Period'.Value
+        }
+    );
+
+    /* 3. Run Reject Flow */
+    PA_Approve_Reconciliation_Item.Run(
+        "Rejected",
+
+        txtRejectReason.Text,
+
+        Coalesce(
+            Office365Users.MyProfileV2().Mail,
+            User().Email
+        ),
+
+        Coalesce(
+            Active_Gallery.Selected.Title,
+            "Reconciliation Item"
+        ),
+
+        /* TEMPORARY TEST EMAIL RECIPIENT */
+        "jluna@jhancock.com",
+
+        Coalesce(
+            User().FullName,
+            "Approver"
+        ),
+
+        "https://apps.powerapps.com/play/dd73bcc3-f6b9-4c4e-bf94-af4a19994e0e?source=portal&ItemID=" &
+        Text(Active_Gallery.Selected.ID),
+
+        Active_Gallery.Selected.'Fiscal Year'.Value,
+
+        Active_Gallery.Selected.'Fiscal Period'.Value,
+
+        Text(
+            Coalesce(
+                Active_Gallery.Selected.ID,
+                0
+            )
+        )
+    );
+
+    /* Close Reject Popup */
+    Set(showRejectConfirm,false);
+
+    /* Success Message */
+    Notify(
+        "Reconciliation rejected successfully.",
+        NotificationType.Success
+    )
+)
