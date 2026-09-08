@@ -1,0 +1,101 @@
+If(
+    IsBlank(Trim(txtRejectReason.Text)),
+
+    Set(varShowRejectValidation,true),
+
+    /* VALIDATION PASSED */
+
+    Set(showRejectConfirm,false);
+
+    Patch(
+        Reconciliation,
+        Active_Gallery.Selected,
+        {
+            Status: {
+                Value: "Rejected"
+            }
+        }
+    );
+
+    Patch(
+        ReconciliationAuditLog,
+        Defaults(ReconciliationAuditLog),
+        {
+            Title:
+                Active_Gallery.Selected.Title & " - Rejected",
+
+            ParentID:
+                Text(Active_Gallery.Selected.ID),
+
+            ActivityType:
+                {Value:"Rejected"},
+
+            ChangeDescription:
+                "Status changed from " &
+                Active_Gallery.Selected.Status.Value &
+                " to Rejected",
+
+            OldValue:
+                Active_Gallery.Selected.Status.Value,
+
+            NewValue:
+                "Rejected",
+
+            Comments:
+                txtRejectReason.Text,
+
+            CreatedOn:
+                Now(),
+
+            CreatedByName:
+                User().FullName,
+
+            CreatedByEmail:
+                User().Email,
+
+            FiscalYear:
+                Active_Gallery.Selected.'Fiscal Year'.Value,
+
+            FiscalPeriod:
+                Active_Gallery.Selected.'Fiscal Period'.Value
+        }
+    );
+
+    PA_Approve_Reconciliation_Item.Run(
+    Text(Active_Gallery.Selected.ID),
+    "Rejected",
+    txtRejectReason.Text,
+    First(
+        Office365Users.SearchUser(
+            {
+                searchTerm: Active_Gallery.Selected.'Assigned Approver'
+            }
+        )
+    ).Mail,
+    Active_Gallery.Selected.Title,
+
+    First(
+        Office365Users.SearchUser(
+            {
+                searchTerm: Active_Gallery.Selected.'Process Owner'
+            }
+        )
+    ).Mail,
+
+    User().FullName,
+
+    "https://apps.powerapps.com/play/dd73bcc3-f6b9-4c4e-bf94-af4a19994e0e?source=portal&ItemID=" &
+    Text(Active_Gallery.Selected.ID),
+
+    Active_Gallery.Selected.'Fiscal Year'.Value,
+    Active_Gallery.Selected.'Fiscal Period'.Value
+);
+
+    Notify(
+        "Item rejected successfully.",
+        NotificationType.Success
+    );
+
+    Reset(txtRejectReason);
+    Set(varShowRejectValidation,false)
+)
