@@ -1,0 +1,86 @@
+SubmitForm(TaskForm);
+
+If(
+    TaskForm.Valid,
+
+    Patch(
+        Reconciliation,
+        TaskForm.LastSubmit,
+        {
+            Status: {
+                Value: "Pending Approval"
+            }
+        }
+    );
+
+    Patch(
+        ReconciliationAuditLog,
+        Defaults(ReconciliationAuditLog),
+        {
+            Title:
+                TaskForm.LastSubmit.Title & " - Submitted",
+
+            ParentID:
+                Text(TaskForm.LastSubmit.ID),
+
+            ActivityType:
+                {Value:"Submitted"},
+
+            ChangeDescription:
+                "Record submitted for approval",
+
+            OldValue:
+                "Draft",
+
+            NewValue:
+                "Pending Approval",
+
+            CreatedOn:
+                Now(),
+
+            CreatedByName:
+                User().FullName,
+
+            CreatedByEmail:
+                User().Email,
+
+            FiscalYear:
+                TaskForm.LastSubmit.'Fiscal Year'.Value,
+
+            FiscalPeriod:
+                TaskForm.LastSubmit.'Fiscal Period'.Value
+        }
+    );
+
+    'SendanEmailtoApprover-PowerAppV2->Sendanemail(V2)'.Run(
+        TaskForm.LastSubmit.Title,
+        TaskForm.LastSubmit.'Fiscal Year'.Value,
+        TaskForm.LastSubmit.'Fiscal Period'.Value,
+        First(
+            Office365Users.SearchUser(
+                {
+                    searchTerm: TaskForm.LastSubmit.'Process Owner'
+                }
+            )
+        ).Mail,
+        First(
+            Office365Users.SearchUser(
+                {
+                    searchTerm: TaskForm.LastSubmit.'Assigned Approver'
+                }
+            )
+        ).Mail,
+        Text(TaskForm.LastSubmit.ID),
+        "https://apps.powerapps.com/play/dd73bcc3-f6b9-4c4e-bf94-af4a19994e0e?source=portal&ItemID=" &
+        Text(TaskForm.LastSubmit.ID),
+        First(
+            Office365Users.SearchUser(
+                {
+                    searchTerm: TaskForm.LastSubmit.'Assigned Approver'
+                }
+            )
+        ).GivenName
+    );
+
+    Set(showSuccessPopup, true)
+);
